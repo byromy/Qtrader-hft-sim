@@ -1,0 +1,6 @@
+/build/
+/build-*/
+/results/
+*.shm
+*.profraw
+*.profdata
