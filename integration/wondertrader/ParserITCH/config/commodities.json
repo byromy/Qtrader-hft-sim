@@ -1,0 +1,16 @@
+{
+  "PSX": {
+    "STK": {
+      "category": 0,
+      "covermode": 0,
+      "exchg": "PSX",
+      "holiday": "",
+      "name": "NASDAQ PSX stock",
+      "precision": 2,
+      "pricemode": 1,
+      "pricetick": 0.01,
+      "session": "ALLDAY",
+      "volscale": 1
+    }
+  }
+}

@@ -1,0 +1,67 @@
+benchmark_version=uft-production-v3
+benchmark_scope=raw_ITCH_message_to_first_UFT_callback_arrival_and_input_round_trip
+correctness_audit=separate_untimed_full_field_order_sensitive_fingerprint
+latency_callback=arrival_timestamp_then_minimal_observable_consume_and_count
+throughput_validation=per_pass_exact_callback_counts_and_Q_delivery_counters
+isolation=cgroup_v2_cpuset_isolated_8-9
+affinity=taskset_cpu_8
+throughput_minimum_measured_seconds_per_path=5.0
+process_level_warmup_runs=1
+process_level_warmup_path_order=QWT
+process_level_warmup_included_in_csv=no
+statistics_population=measured_runs_only
+measured_runs=5
+timestamp=2026-09-03T21:37:30+08:00
+60ff6709dafdce048f0f68f565365afad63cf18a2249239e951e973d27b6a114  /tmp/ParserITCHUftFormalBench
+d88aba21ce0b0f375df0804f54aa749a1aa161f2807760330bc3379ad5867bab  /media/yu/新加卷/20190730.PSX_ITCH_50
+c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+Linux yu-OMEN-by-HP-Gaming-Laptop-16-wf0xxx 7.0.0-28-generic #28~24.04.1-Ubuntu SMP PREEMPT_DYNAMIC Wed Jul  1 15:50:57 UTC 2 x86_64 x86_64 x86_64 GNU/Linux
+架构：                                   x86_64
+CPU 运行模式：                           32-bit, 64-bit
+Address sizes:                           39 bits physical, 48 bits virtual
+字节序：                                 Little Endian
+CPU:                                     32
+在线 CPU 列表：                          0-31
+厂商 ID：                                GenuineIntel
+型号名称：                               13th Gen Intel(R) Core(TM) i9-13900HX
+CPU 系列：                               6
+型号：                                   183
+每个核的线程数：                         2
+每个座的核数：                           24
+座：                                     1
+步进：                                   1
+CPU(s) scaling MHz:                      19%
+CPU 最大 MHz：                           5400.0000
+CPU 最小 MHz：                           800.0000
+BogoMIPS：                               4838.40
+标记：                                   fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities
+虚拟化：                                 VT-x
+L1d 缓存：                               896 KiB (24 instances)
+L1i 缓存：                               1.3 MiB (24 instances)
+L2 缓存：                                32 MiB (12 instances)
+L3 缓存：                                36 MiB (1 instance)
+NUMA 节点：                              1
+NUMA 节点0 CPU：                         0-31
+Vulnerability Gather data sampling:      Not affected
+Vulnerability Ghostwrite:                Not affected
+Vulnerability Indirect target selection: Not affected
+Vulnerability Itlb multihit:             Not affected
+Vulnerability L1tf:                      Not affected
+Vulnerability Mds:                       Not affected
+Vulnerability Meltdown:                  Not affected
+Vulnerability Mmio stale data:           Not affected
+Vulnerability Old microcode:             Not affected
+Vulnerability Reg file data sampling:    Mitigation; Clear Register File
+Vulnerability Retbleed:                  Not affected
+Vulnerability Spec rstack overflow:      Not affected
+Vulnerability Spec store bypass:         Mitigation; Speculative Store Bypass disabled via prctl
+Vulnerability Spectre v1:                Mitigation; usercopy/swapgs barriers and __user pointer sanitization
+Vulnerability Spectre v2:                Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S
+Vulnerability Srbds:                     Not affected
+Vulnerability Tsa:                       Not affected
+Vulnerability Tsx async abort:           Not affected
+Vulnerability Vmscape:                   Mitigation; IBPB before exit to userspace
+kernel_cmdline=BOOT_IMAGE=/boot/vmlinuz-7.0.0-28-generic root=UUID=119f1b62-2d07-4fe2-b258-6a32ad0b836a ro quiet splash vt.handoff=7
+cgroup_membership=/qtrader-isolated
+cpu_governor=powersave
+thread_siblings=8-9

@@ -1,6 +1,59 @@
+# CMake and compiler output
 /build/
 /build-*/
+/cmake-build-*/
+**/build_*/
+**/CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+compile_commands.json
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.dll
+*.dylib
+*.exe
+
+# Generated runtime and profiling output
 /results/
 *.shm
+*.log
 *.profraw
 *.profdata
+*.gcda
+*.gcno
+perf.data*
+
+# Benchmark output: publish only the audited v3 final result sets.
+/bench/results/*
+!/bench/results/*-warmup-v3-final.csv
+!/bench/results/*-warmup-v3-final.raw.txt
+!/bench/results/*-warmup-v3-final.meta.txt
+
+# Historical market-data captures are inputs, not repository source.
+*.ITCH_50
+*.PSX_ITCH_50
+*.itch
+*.pcap
+*.pcapng
+/data/
+/datasets/
+
+# Local editor, agent and OS state
+/.vscode/
+/.idea/
+/.agents/
+/.codex/
+.DS_Store
+*~
+*.swp
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key

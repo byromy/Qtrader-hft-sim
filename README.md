@@ -1,33 +1,31 @@
-# Qtrader
+# Qtrader UFT
 
-Qtrader 是基于 WonderTrader 实施的整体低延迟改造项目，并从改造后的仓库中提取为可独立构建的 C++17 工程。改造范围不只包括订单簿，还覆盖 WonderTrader 的行情共享内存分发、进程间通信协议、线程间队列、数据布局、内存管理，以及从  Level2回放到模拟下单的端到端链路：
+Qtrader 是面向 WonderTrader UFT 语义实施的低延迟行情工程，并从
+WonderTrader 集成代码中提取了可独立构建和验证的 C++17 核心。
+旧版 HFT simulation 流水线及其订单簿、SPSC、共享内存和 HFT 专用基准
+已经移除；默认工程只呈现 UFT 行情路径。
+
+## 当前结构
 
 ```text
-Level2 逐笔委托回放
-  -> mmap 序列号广播环（SPMC）
-  -> 缓存行隔离的 SPSC 环形队列
-  -> 价格时间优先订单簿
-  -> 示例策略
-  -> 模拟市价单与成交回报
+Level2 / ITCH 行情
+  -> 协议解析与序号检查
+  -> 定点整数 UFT 事件与预分配订单状态
+  -> 整数合约 ID 与启动期预注册策略
+  -> 策略回调
 ```
 
-WonderTrader 原有接口和主要运行结构仍被保留：`ShmCaster` 与 `ParserShm` 在原有组件边界内增加序列号协议，旧版共享内存协议可以继续使用；原有`WtBtCore/MatchEngine` 也没有被删除。新写的价格时间优先订单簿用于更贴近逐笔Level2 的撮合实验，并为后续低延迟数据结构优化提供可验证的基线。
+仓库中包含：
 
-## 项目特点
+- MoldUDP64 拆包、序号检查和补包请求构造。
+- Nasdaq/PSX ITCH 5.0 解析和订单生命周期处理。
+- 固定容量 UFT Engine、整数合约 ID 和预注册策略回调。
+- 定长订单状态表、成交去重和 Broken Trade 撤销语义。
+- WonderTrader 集成代码与可重复基准脚本。
 
-- mmap SPMC 广播环：单生产者、多消费者独立游标、每槽独立序列号、覆盖丢帧统计和生产者运行代次重启检测。
-- SPSC 环形队列：固定容量、无锁、生产者与消费者状态 `alignas(64)` 隔离，使用获取/释放内存序发布数据。
-- 价格时间优先订单簿：支持限价、市价、撤单、改单和部分成交。
-- 稠密订单簿（`DensePriceOrderBook`）：固定价格窗口、连续 64 字节对齐存储、位图最优价查找、固定容量订单索引和节点池；热路径不分配内存。
-- WonderTrader 原生逐笔行情热路径基准：预热后分别统计行情分发、策略和模拟下单阶段的平均值及 p50/p99/p99.9。
-- 对象池实验：保留原自旋锁路径，并以 `WT_POOL_SINGLE_THREAD_FAST` 构建专用对照目标，验证同线程分配释放时移除冗余锁的收益与约束。
-- 正确性参考实现：以可读的 `std::map` 订单簿为可信基线，对 20 万次确定性随机操作逐事件差分校验。
-- 评测：预热、吞吐、平均值/p50/p99/p99.9/最大值、流水线分阶段延迟、ASan/UBSan、perf 和 ftrace 脚本。
-
-## 构建方法
+## 构建
 
 ```bash
-cd Qtrader
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ctest --test-dir build --output-on-failure
@@ -38,109 +36,195 @@ ctest --test-dir build --output-on-failure
 ```bash
 cmake -S . -B build-asan \
   -DCMAKE_BUILD_TYPE=Debug \
-  -DQTRADER_ENABLE_SANITIZERS=ON \
-  -DQTRADER_ENABLE_AVX2=OFF
+  -DQTRADER_ENABLE_SANITIZERS=ON
 cmake --build build-asan --parallel
 ctest --test-dir build-asan --output-on-failure
 ```
 
-## 性能评测
+## 当前有效性能结果
+
+### PSX ITCH 5.0 → UFT 策略回调（2026-09-03，未隔离基线）
+
+测试从同一批、同一顺序的 238,991 条 AAPL 原始 ITCH 5.0 消息开始。
+两边分别执行自己的 ITCH 订单状态和 UFT 事件转换，最终到达语义等价的
+UFT 策略回调。这个边界比较的是两套可独立运行的行情生产链路，不是只替换
+一个分发函数的微基准。
+
+测量条件：
+
+- Ubuntu/Linux x86-64，Intel Core i9-13900HX，15 GiB 系统内存。
+- 未使用 CPU 隔离；仅临时绑定 CPU 8，五轮迁核数均为 0。
+- CPU governor 为 `powersave`，CPU 8 的 SMT 兄弟 CPU 9 未隔离。
+- 开始使用 `LFENCE+RDTSC`，结束使用 `RDTSCP+LFENCE`。
+- 延迟样本是一条完整输入消息的耗时，不是批次平均值。
+- 正式五轮前先运行一次完整的独立进程级 warm-up；其输出只保留在 raw
+  审计记录中，不进入 CSV 和统计。每个正式进程仍先做一次不计时正确性回放。
+- 持续吞吐每条路径每轮累计有效计时至少 5 秒。
+- 奇数轮按 WT→Q 执行，偶数轮按 Q→WT 执行。
+- 两边的逐消息入口都经过 `noinline` ABI 边界并禁用 LTO。运行前的
+  反汇编守卫确认 Qtrader 的合约范围检查、订阅槽读取和间接回调仍然存在。
+- 正确性在不计时回放中使用覆盖订单号、定点价格、数量、方向、类型、
+  买卖订单号和时间的顺序敏感指纹，并将回调数、解析器统计和日终订单
+  状态逐项对账。指纹计算不在延迟或吞吐计时区间内。
+- 延迟回调在入口立即留下时间戳，之后只做可观测的最小消费和计数；持续吞吐
+  每一遍都核对策略回调数，Qtrader 还核对了生成、成功投递、回调交付和未投递数。
+
+本节采用已经核验的 `uft-production-v3`。它强制先运行一个不入 CSV、
+不参与统计且必须通过完整校验的预热进程；当前表格和结论全部来自该版本。
+
+两条路径均产出 119,487 条委托和 120,057 条成交/撤单事件。
+五轮全部为 `validation=PASS` 且 `throughput_delivery=PASS`。下表为
+五轮结果的中位数。
+
+| 原始 ITCH 消息→第一个策略回调入口 | 平均 | p50 | p99 | p99.9 |
+|---|---:|---:|---:|---:|
+| WonderTrader UFT | 120.88 ns | 117.81 ns | 169.07 ns | 221.15 ns |
+| Qtrader UFT | 15.68 ns | 14.47 ns | 38.03 ns | 100.86 ns |
+
+回调入口只对产生策略事件的 238,986 条输入取样。下表的整消息往返则覆盖
+全部 238,991 条输入，包含最小策略回调执行到返回的时间。
+
+| 原始 ITCH 消息整消息往返 | 平均 | p50 | p99 | p99.9 |
+|---|---:|---:|---:|---:|
+| WonderTrader UFT | 156.45 ns | 155.02 ns | 211.23 ns | 375.34 ns |
+| Qtrader UFT | 35.13 ns | 32.24 ns | 60.77 ns | 123.60 ns |
+
+| 5 秒以上墙钟持续吞吐 | 输入吞吐 | 输出/已验证回调吞吐 |
+|---|---:|---:|
+| WonderTrader UFT | 8.025 Mmsg/s | 8.043 Mevent/s |
+| Qtrader UFT | 64.378 Mmsg/s | 64.527 Mevent/s |
+
+按中位数计算，Qtrader 到第一个回调入口的平均延迟为 WonderTrader 的
+约 1/7.71，p50 约为 1/8.14，p99 约为 1/4.45；持续输入吞吐约为
+8.02 倍。
+
+内存数字分开披露：Qtrader runner、内嵌 Engine、回调桥和适配器控制对象
+的固定大小为 4,718,928 bytes（约 4.50 MiB）；本次 AAPL 容量配置下的
+订单与成交记录表为 720,896 bytes（704 KiB）。两者合计 5,439,824 bytes
+（约 5.19 MiB），不含分配器元数据。基准程序另外为语料
+保留 48,750,000 bytes（46.49 MiB）虚拟容量，五组延迟样本容量合计
+9,559,640 bytes（9.12 MiB）；五轮进程峰值 RSS 的中位数为 37,476 KiB。
+保留容量不等于全部页面已驻留，因此不应与 RSS 直接相加。
+
+ITCH `B` Broken Trade 现已转换为 `TradeBust`；本日 AAPL 语料中 `B=0`，
+所以该分支由独立合成测试覆盖，不借助这份语料声称实盘验证。
+
+这是“原始 ITCH 消息→策略回调”的同输入比较，不包含物理网卡收包、
+策略计算、风控、交易网关和下单回报，因此不是完整交易系统延迟。
+
+本轮没有设置 cpuset、`isolcpus/nohz_full/rcu_nocbs`，IRQ 也未迁移。
+回调入口的五轮单次最大值中位数分别约为 9.31 微秒和 11.91 微秒，
+说明未隔离环境仍有明显调度噪声。p50/p99 可作为未调优基线；max 和更
+极端尾部不能当作隔离机器上的结果。
+
+复现脚本：
 
 ```bash
-RUNS=10 SAMPLES=1000000 ./scripts/bench_spsc.sh
-RUNS=5 ORDERS=200000 ./scripts/bench_dense_orderbook.sh
-RUNS=3 EVENTS=200000 ./scripts/run_level2_pipeline.sh
+RUNS=5 CPU=8 ./scripts/bench_wt_qtrader_uft_formal.sh
 ```
 
-传入 WonderTrader `WTSOrdDtlStruct` 连续二进制文件：
+原始记录：
+
+- `bench/results/wt-qtrader-uft-formal-20260903-unisolated-warmup-v3-final.csv`
+- `bench/results/wt-qtrader-uft-formal-20260903-unisolated-warmup-v3-final.raw.txt`
+- `bench/results/wt-qtrader-uft-formal-20260903-unisolated-warmup-v3-final.meta.txt`
+
+### 已完成的 cpuset-only 对照
+
+同一 `v3` 二进制、语料和五轮顺序还做过一次仅启用 cgroup v2 isolated
+partition 的对照。CPU governor 仍为 `powersave`，没有启用启动期
+`nohz_full/rcu_nocbs`，也没有把该结果描述成完整低噪声环境。
+
+| 五轮中位数 | 未隔离 | cpuset-only | 变化 |
+|---|---:|---:|---:|
+| WonderTrader 回调入口平均延迟 | 120.88 ns | 121.74 ns | +0.71% |
+| Qtrader UFT 回调入口平均延迟 | 15.68 ns | 16.85 ns | +7.45% |
+| WonderTrader 输入吞吐 | 8.025 Mmsg/s | 8.030 Mmsg/s | +0.07% |
+| Qtrader UFT 输入吞吐 | 64.378 Mmsg/s | 64.546 Mmsg/s | +0.26% |
+
+这次 cpuset-only 对照没有证明延迟改善。对应原始记录位于
+`bench/results/wt-qtrader-uft-formal-20260903-cpuset-isolated-warmup-v3-final.*`。
+
+### 可选低噪声环境脚本（未执行、未产生性能结论）
+
+项目只提供后续调优脚本，不再执行或发布这组后续实验结果。脚本固定针对
+本机 CPU 8–9 这一对 SMT 兄弟和 CPU 8 的基准绑定方式；换机器前必须重新
+检查 `lscpu -e`、NUMA 节点、CPU policy 和 IRQ 布局，不能直接照搬。
+
+- `scripts/qtrader_cpuset_partition.sh`：动态创建、使用和恢复 cgroup v2
+  isolated partition。
+- `scripts/qtrader_low_noise_runtime.sh`：在上述 partition 基础上，把 CPU
+  8–9 governor 临时改为 `performance`，停止活动的 `irqbalance`，尝试把
+  可迁移 IRQ 移到 housekeeping CPU，并临时关闭 watchdog；`restore` 从
+  `/run/qtrader-low-noise-runtime` 保存的状态恢复。
+- `scripts/qtrader_boot_isolation.sh`：通过独立 GRUB drop-in 添加
+  `nohz_full=8-9 rcu_nocbs=8-9 irqaffinity=0-7,10-31
+  isolcpus=managed_irq,8-9 nowatchdog`。安装和移除后都必须重启 Linux 才会
+  改变当前内核状态；它不修改 Windows 分区或 Windows 启动配置。
+
+只查看状态不会改动系统：
 
 ```bash
-RUNS=3 ./scripts/run_level2_pipeline.sh /path/to/order_detail.bin
+./scripts/qtrader_cpuset_partition.sh status
+./scripts/qtrader_low_noise_runtime.sh status
+./scripts/qtrader_boot_isolation.sh status
 ```
 
-不传文件时使用确定性生成的逐笔委托流。输入二进制必须与 `third_party/wondertrader/WTSStruct.h` 的 ABI 一致。
+如果用户自行决定启用，完整顺序为：
 
-## 评测结果
+```bash
+sudo ./scripts/qtrader_boot_isolation.sh install
+sudo reboot
 
-**Linux 裸机评测待补。** 以下结果是在 Ubuntu VMware 虚拟机中取得的版本间中位数，仅用于相同虚拟机环境下的相对比较
+# 重启后
+sudo ./scripts/qtrader_low_noise_runtime.sh setup
+sudo ./scripts/qtrader_cpuset_partition.sh run \
+  env BENCH_BIN=/持久目录/ParserITCHUftFormalBench \
+  ./scripts/bench_wt_qtrader_uft_formal.sh
+sudo ./scripts/qtrader_low_noise_runtime.sh restore
+```
 
-### WonderTrader 原生热路径
+基准默认二进制路径是 `/tmp/ParserITCHUftFormalBench`，而 `/tmp` 可能在重启后
+被清空。因此启动参数实验前必须重新构建，或者像上面一样用 `BENCH_BIN`
+指定持久目录中的可执行文件。基准脚本会在开始前检查二进制、ITCH 语料和三份
+WonderTrader 配置，并把 watchdog、governor、cpuset、`nohz_full` 和仍落在
+CPU 8–9 上的 IRQ 状态写入新结果的 meta 文件。
 
-原生基准使用 WonderTrader HFT 引擎、策略上下文和模拟交易 API。每轮先运行 10 万
-次预热行情，再测量 100 万次正式行情，并绑定到虚拟机 vCPU 2。下表使用默认自旋锁
-对象池路径五次运行的中位数，用于展示原生链路的阶段测量能力：
+恢复启动参数同样需要再次重启：
 
-| 原生热路径阶段 | 平均值中位数 | p50 中位数 | p99 中位数 |
-|---|---:|---:|---:|
-| 行情分发 | 780.00 ns | 850 ns | 1,380 ns |
-| 策略决策 | 67.53 ns | 81 ns | 104 ns |
-| 订单路径 | 984.39 ns | 1,166 ns | 1,598 ns |
-| 模拟 API 调用 | 66.30 ns | 81 ns | 104 ns |
-| 端到端 | 2,318.57 ns | 2,615 ns | 4,370 ns |
+```bash
+sudo ./scripts/qtrader_boot_isolation.sh remove
+sudo reboot
+```
 
-该表是原生路径的测量结果，不是与 Qtrader Level2 流水线之间的性能对照。
-
-### SPSC 队列对照
-
-SPSC 用于 Qtrader 新建 Level2 链路中的线程间移交，并未替换 WonderTrader 原生策略
-分发。以下是五次虚拟机运行的代表性结果：
-
-| 移交方式 | 饱和吞吐量 | 单条在途 p99 延迟 |
-|---|---:|---:|
-| 直接调用 | 不适用，接近计时下限 | 101 ns |
-| SPSC 环形队列 | 7.04 M event/s | 525 ns |
-| 互斥锁队列 | 2.72 M event/s | 7.98 us |
-| 自旋锁队列 | 7.22 M event/s | 43.64 us |
-
-自旋锁吞吐量偶尔接近 SPSC，但尾延迟明显更差；不需要线程解耦时，直接调用仍然最低。
-
-### 补充实验：数据布局与 AVX2
-
-该实验面向可批量计算的盘口特征，不是原生逐笔订单路径。对 1,048,576 份订单簿执行20 轮计算，十次运行中位数如下：
-
-| 数据布局与计算方式 | 每条行情耗时中位数 | 相对速度 |
-|---|---:|---:|
-| 完整订单簿 AoS，标量 | 10.03 ns | 1.00x |
-| 最优档热字段 SoA，标量 | 2.70 ns | 3.72x |
-| 最优档热字段 SoA，AVX2 | 1.27 ns | 7.88x |
-
-7.88x 是“完整 AoS 标量”到“紧凑 SoA 加 AVX2”的组合收益，其中 AVX2 相对 SoA标量约为 2.12x；不能表述为 WonderTrader 原生撮合或下单加速 7.88x。
-
-### 订单簿与 Level2 链路
-
-下表属于**改造项目内部的组件对照测试**。其中“订单簿基线”是为逐笔 Level2 链路新写的 `std::map` 价格时间优先订单簿，它侧重可读性和正确性，并作为稠密版本的可信正确性参考。它不代表整个项目建立在该订单簿之上，也不代表原版 WonderTrader。
-
-原版 WonderTrader `WtBtCore/MatchEngine` 仍保留在基础系统中，主要服务于原有的逐笔行情驱动回测撮合。由于它与新链路的输入语义、撮合模型和计时边界不同，下表没有把二者强行放在同一微基准中比较。下表用于证明其中稠密订单簿相对于可验证基线的增益。
-
-| 测试项目 | `std::map` 订单簿基线 | 稠密订单簿 | 变化 |
-|---|---:|---:|---:|
-| 提交订单吞吐量 | 3.19 M/s | 5.45 M/s | 1.71x |
-| 撤单吞吐量 | 4.83 M/s | 6.61 M/s | 1.37x |
-| 撮合吞吐量 | 2.33 M/s | 5.54 M/s | 2.38x |
-| 改单吞吐量 | 3.88 M/s | 5.59 M/s | 1.44x |
-| 全链路饱和吞吐量 | 2.11 M/s | 3.40 M/s | +61.6% |
-| 订单簿与策略阶段 p99 | 1.21 us | 289 ns | -76% |
-| 端到端 p99 | 8.74 us | 1.88 us | -78.4% |
+运行 `setup` 后即使中途失败，也应先执行 `restore`，不要直接删除 `/run` 中
+的状态文件。`nowatchdog` 和运行期 watchdog 设置会降低内核锁死检测能力，
+仅适合用户明确接受该诊断能力取舍的短时专用环境。cgroup v2 partition、
+`nohz_full`、RCU offload 和 managed IRQ 的语义应以 Linux 内核的
+[CPU isolation 文档](https://docs.kernel.org/admin-guide/cpu-isolation.html)、
+[内核参数文档](https://www.kernel.org/doc/html/latest/admin-guide/kernel-parameters.html)
+和 [lockup watchdog 文档](https://docs.kernel.org/admin-guide/lockup-watchdogs.html)
+为准。
 
 ## 目录结构
 
 ```text
 include/qtrader/               可复用的低延迟组件
-src/                           端到端行情回放链路
-tests/                         正确性测试与差分测试
-bench/                         微基准程序
-scripts/                       构建、评测与跟踪脚本
-integration/wondertrader/      完整 WonderTrader 低延迟集成快照
+tests/                         UFT、ITCH、MoldUDP64 正确性与差分测试
+tools/                         ITCH 检查、回放和 MoldUDP64 工具
+bench/                         UDP 回环基准
+scripts/                       UFT 评测与可选系统调优脚本
+integration/wondertrader/      WonderTrader UFT/ITCH 集成快照
 third_party/wondertrader/      行情二进制 ABI 定义
 ```
 
 ## 项目范围与局限
 
-- 当前是离线回放与模拟下单，没有真实交易柜台、OMS 持久化、实盘风控或断线恢复。
-- 稠密订单簿要求为交易品种配置合法最小变动价位和价格上下界；离线程序的最大公约数推断仅用于回放实验。
-- mmap 环实现的是广播语义，不是工作窃取队列；慢消费者可能被覆盖，但会准确统计序列号缺口。
-- AVX2 示例验证 SoA 批处理场景，不表示订单簿逐笔热路径天然适合 SIMD。
+- 当前已有 MoldUDP64 拆包、序号缺口检测和补包请求构造，但仍是
+  本机离线/回环重放；还没有实盘组播接入、真实交易柜台或实盘风控。
+- 当前发布边界止于 UFT 策略行情回调，不包含策略决策、风控、下单和回报链路。
+- 固定容量表必须按目标市场的活跃订单峰值在启动期配置；容量不足会被统计为错误，
+  不会在热路径扩容。
 
-WonderTrader 派生的数据结构与集成文件保留原 MIT 许可，见 `LICENSE.wondertrader`。
-
-原生逐笔行情热路径基准和对象池优化依赖完整 WonderTrader，独立 Qtrader CMake默认不构建它们，但相关改动源码已经包含在 `integration/wondertrader/`
+WonderTrader 派生的数据结构与集成文件保留原 MIT 许可，见
+`LICENSE.wondertrader`。
