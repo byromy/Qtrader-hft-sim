@@ -1,0 +1,9 @@
+{
+  "ALLDAY": {
+    "name": "All day",
+    "offset": 0,
+    "sections": [
+      { "from": 0, "to": 2359 }
+    ]
+  }
+}

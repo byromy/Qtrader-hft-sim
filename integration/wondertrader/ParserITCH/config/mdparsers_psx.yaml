@@ -1,0 +1,10 @@
+parsers:
+-   active: true
+    id: psx_itch_aapl
+    module: ParserITCH
+    path: /media/yu/新加卷/20190730.PSX_ITCH_50
+    symbol: AAPL
+    date: 20190730
+    gpsize: 100000
+    filter: PSX
+    code: PSX.AAPL

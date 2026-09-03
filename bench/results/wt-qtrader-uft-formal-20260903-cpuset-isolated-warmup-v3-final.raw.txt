@@ -1,0 +1,50 @@
+uft_dispatch_disassembly_guard=PASS
+phase=process_warmup begin included_in_statistics=no path_order=QWT
+WARMUP_NOT_SAMPLED,CSV,uft_latency,input_round_trip,WonderTrader,238991,156.408342,155.847284,212.068055,375.769711,4721.717980,0
+WARMUP_NOT_SAMPLED,CSV,uft_latency,input_round_trip,Qtrader-UFT,238991,36.175443,34.724594,64.901919,121.949466,7059.013852,0
+WARMUP_NOT_SAMPLED,CSV,uft_latency,first_callback_arrival,WonderTrader,238986,121.135395,117.815586,170.729253,221.162591,1304.652595,0
+WARMUP_NOT_SAMPLED,CSV,uft_latency,first_callback_arrival,Qtrader-UFT,238986,16.774388,15.295357,42.992354,101.693453,7041.238167,0
+WARMUP_NOT_SAMPLED,CSV,uft_throughput,WonderTrader,40389479,40482936,8.037311,8.055908,169,5.025248,40482936
+WARMUP_NOT_SAMPLED,CSV,uft_throughput,Qtrader-UFT,319291976,320030784,63.820947,63.968622,1336,5.002934,320030784
+WARMUP_NOT_SAMPLED,validation=PASS benchmark=uft-production-v3 path_order=QWT cpu=8 target_messages=238991 orders=119487 transactions=120057 trade_busts=0 overhead=22_cycles tsc=2419.035_MHz q_static_memory=4718928_bytes q_table_memory=720896_bytes corpus_memory=48750000_bytes sample_memory=9559640_bytes peak_rss=35288_KiB audit=PASS throughput_delivery=PASS minimum_throughput_seconds=5.0
+phase=process_warmup end validation=PASS included_in_statistics=no
+phase=measured run=1/5 cpu=8 path_order=WTQ isolation=cgroup_v2_cpuset_isolated_8-9
+CSV,uft_latency,input_round_trip,WonderTrader,238991,157.339329,156.673587,215.787895,375.768576,1637.425003,0
+CSV,uft_latency,input_round_trip,Qtrader-UFT,238991,36.421640,34.311102,65.728497,169.901963,12079.161471,0
+CSV,uft_latency,first_callback_arrival,WonderTrader,238986,122.019647,118.642004,170.728737,236.870620,1588.645364,0
+CSV,uft_latency,first_callback_arrival,Qtrader-UFT,238986,17.088610,15.295311,44.645771,147.992464,12061.799227,0
+CSV,uft_throughput,WonderTrader,40389479,40482936,8.030920,8.049503,169,5.029247,40482936
+CSV,uft_throughput,Qtrader-UFT,322876841,323623944,64.546175,64.695528,1351,5.002261,323623944
+validation=PASS benchmark=uft-production-v3 path_order=WTQ cpu=8 target_messages=238991 orders=119487 transactions=120057 trade_busts=0 overhead=22_cycles tsc=2419.042_MHz q_static_memory=4718928_bytes q_table_memory=720896_bytes corpus_memory=48750000_bytes sample_memory=9559640_bytes peak_rss=37596_KiB audit=PASS throughput_delivery=PASS minimum_throughput_seconds=5.0
+phase=measured run=2/5 cpu=8 path_order=QWT isolation=cgroup_v2_cpuset_isolated_8-9
+CSV,uft_latency,input_round_trip,WonderTrader,238991,156.748099,155.846698,213.720803,377.421844,9063.498281,0
+CSV,uft_latency,input_round_trip,Qtrader-UFT,238991,36.194069,34.724463,65.315062,124.429326,7793.161669,0
+CSV,uft_latency,first_callback_arrival,WonderTrader,238986,121.363398,117.815143,170.728611,236.870445,9027.947045,0
+CSV,uft_latency,first_callback_arrival,Qtrader-UFT,238986,16.850227,15.295299,43.818965,103.760003,7777.039597,0
+CSV,uft_throughput,WonderTrader,40150488,40243392,8.022622,8.041186,168,5.004659,40243392
+CSV,uft_throughput,Qtrader-UFT,308776372,309490848,61.748720,61.891600,1292,5.000531,309490848
+validation=PASS benchmark=uft-production-v3 path_order=QWT cpu=8 target_messages=238991 orders=119487 transactions=120057 trade_busts=0 overhead=22_cycles tsc=2419.044_MHz q_static_memory=4718928_bytes q_table_memory=720896_bytes corpus_memory=48750000_bytes sample_memory=9559640_bytes peak_rss=35552_KiB audit=PASS throughput_delivery=PASS minimum_throughput_seconds=5.0
+phase=measured run=3/5 cpu=8 path_order=WTQ isolation=cgroup_v2_cpuset_isolated_8-9
+CSV,uft_latency,input_round_trip,WonderTrader,238991,156.617236,155.846633,215.374259,376.594913,11554.146903,0
+CSV,uft_latency,input_round_trip,Qtrader-UFT,238991,36.606266,34.724449,66.555193,171.555312,12712.455297,0
+CSV,uft_latency,first_callback_arrival,WonderTrader,238986,121.381128,117.815094,170.728539,240.590823,11525.623248,0
+CSV,uft_latency,first_callback_arrival,Qtrader-UFT,238986,17.029489,15.295293,44.645720,147.992293,12688.892278,0
+CSV,uft_throughput,WonderTrader,40389479,40482936,8.042946,8.061556,169,5.021727,40482936
+CSV,uft_throughput,Qtrader-UFT,324549778,325300752,64.901939,65.052116,1358,5.000618,325300752
+validation=PASS benchmark=uft-production-v3 path_order=WTQ cpu=8 target_messages=238991 orders=119487 transactions=120057 trade_busts=0 overhead=22_cycles tsc=2419.045_MHz q_static_memory=4718928_bytes q_table_memory=720896_bytes corpus_memory=48750000_bytes sample_memory=9559640_bytes peak_rss=37596_KiB audit=PASS throughput_delivery=PASS minimum_throughput_seconds=5.0
+phase=measured run=4/5 cpu=8 path_order=QWT isolation=cgroup_v2_cpuset_isolated_8-9
+CSV,uft_latency,input_round_trip,WonderTrader,238991,157.238668,156.259586,213.720121,376.593870,4728.299320,0
+CSV,uft_latency,input_round_trip,Qtrader-UFT,238991,36.124262,34.724352,64.901468,123.602159,4616.271945,0
+CSV,uft_latency,first_callback_arrival,WonderTrader,238986,121.884224,118.641537,170.728066,240.590156,4699.775745,0
+CSV,uft_latency,first_callback_arrival,Qtrader-UFT,238986,16.785356,15.295250,42.992055,103.759672,4596.429458,0
+CSV,uft_throughput,WonderTrader,40150488,40243392,8.029941,8.048521,168,5.000098,40243392
+CSV,uft_throughput,Qtrader-UFT,320008949,320749416,63.958246,64.106239,1339,5.003404,320749416
+validation=PASS benchmark=uft-production-v3 path_order=QWT cpu=8 target_messages=238991 orders=119487 transactions=120057 trade_busts=0 overhead=22_cycles tsc=2419.052_MHz q_static_memory=4718928_bytes q_table_memory=720896_bytes corpus_memory=48750000_bytes sample_memory=9559640_bytes peak_rss=35344_KiB audit=PASS throughput_delivery=PASS minimum_throughput_seconds=5.0
+phase=measured run=5/5 cpu=8 path_order=WTQ isolation=cgroup_v2_cpuset_isolated_8-9
+CSV,uft_latency,input_round_trip,WonderTrader,238991,157.077238,155.846439,210.413361,371.633815,8984.113126,0
+CSV,uft_latency,input_round_trip,Qtrader-UFT,238991,34.809059,32.244091,60.767709,137.657464,4584.448285,0
+CSV,uft_latency,first_callback_arrival,WonderTrader,238986,121.737334,118.641718,168.248012,220.334620,8955.589508,0
+CSV,uft_latency,first_callback_arrival,Qtrader-UFT,238986,15.406562,14.468502,38.031492,115.334632,1479.507702,0
+CSV,uft_throughput,WonderTrader,38716542,38806128,7.732579,7.750471,162,5.006938,38806128
+CSV,uft_throughput,Qtrader-UFT,324071796,324821664,64.767817,64.917683,1356,5.003593,324821664
+validation=PASS benchmark=uft-production-v3 path_order=WTQ cpu=8 target_messages=238991 orders=119487 transactions=120057 trade_busts=0 overhead=22_cycles tsc=2419.048_MHz q_static_memory=4718928_bytes q_table_memory=720896_bytes corpus_memory=48750000_bytes sample_memory=9559640_bytes peak_rss=37388_KiB audit=PASS throughput_delivery=PASS minimum_throughput_seconds=5.0

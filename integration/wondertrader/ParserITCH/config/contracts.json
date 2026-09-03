@@ -1,0 +1,10 @@
+{
+  "PSX": {
+    "AAPL": {
+      "code": "AAPL",
+      "exchg": "PSX",
+      "name": "Apple Inc.",
+      "product": "STK"
+    }
+  }
+}
