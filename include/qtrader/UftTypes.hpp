@@ -38,6 +38,23 @@ namespace qtrader
 		TradeBust = 3
 	};
 
+	// Depth changes must not be inferred from deduplicated printable trades.
+	enum class UftBookAction : std::uint8_t { Add, Reduce, Delete, Replace, Execution, Trade, TradeBust };
+	struct UftBookUpdate
+	{
+		std::uint64_t source_sequence{0}; // adapter-local, not transport sequencing
+		std::uint64_t exchange_time_ns{0};
+		std::uint64_t order_id{0};
+		std::uint64_t new_order_id{0};
+		std::uint64_t match_id{0};
+		PriceTicks price_ticks{0};
+		Quantity quantity{0};
+		InstrumentId instrument_id{kInvalidInstrumentId};
+		UftSide side{UftSide::Unknown};
+		UftBookAction action{UftBookAction::Add};
+		bool printable{false};
+	};
+
 	struct UftOrderDetail
 	{
 		std::uint64_t source_sequence{0};

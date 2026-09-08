@@ -28,6 +28,9 @@ namespace qtrader::itch50
 		std::uint64_t transaction_events_delivered{0};
 		std::uint64_t callback_deliveries{0};
 		std::uint64_t undelivered_events{0};
+		std::uint64_t book_events{0};
+		std::uint64_t book_callback_deliveries{0};
+		std::uint64_t undelivered_book_events{0};
 	};
 
 	// One instrument per adapter keeps the packet hot path free of symbol lookup.
@@ -97,6 +100,30 @@ namespace qtrader::itch50
 		}
 
 	private:
+		// Optional channel: existing UFT-only engines compile this out.
+		template<typename Engine>
+		auto book_publish(Engine& engine, const UftBookUpdate& event, int) noexcept
+			-> decltype(engine.publish_book_update(event), void())
+		{
+			++stats_.book_events;
+			const auto delivered = engine.publish_book_update(event);
+			stats_.book_callback_deliveries += delivered;
+			if (!delivered) ++stats_.undelivered_book_events;
+		}
+		template<typename Engine>
+		static void book_publish(Engine&, const UftBookUpdate&, long) noexcept {}
+
+		template<typename Engine>
+		void emit_book(const std::uint8_t* message, UftBookAction action,
+			std::uint64_t id, std::uint64_t new_id, std::uint64_t match_id,
+			PriceTicks price, Quantity quantity, UftSide side, bool printable,
+			Engine& engine) noexcept
+		{
+			book_publish(engine, UftBookUpdate{source_sequence_, read_u48(message + 5),
+				id, new_id, match_id, price, quantity, instrument_id_, side, action,
+				printable}, 0);
+		}
+
 		static UftSide side_of(std::uint8_t side) noexcept
 		{
 			return side == 'B' ? UftSide::Buy :
@@ -192,6 +219,8 @@ namespace qtrader::itch50
 			stats_.peak_active_orders = std::max(stats_.peak_active_orders,
 				static_cast<std::uint64_t>(orders_.size()));
 			emit_order(message, order_id, order, engine);
+			emit_book(message, UftBookAction::Add, order_id, 0, 0,
+				order.price_ticks, quantity, side, false, engine);
 		}
 
 		template<typename Engine>
@@ -209,8 +238,18 @@ namespace qtrader::itch50
 			const auto price = message[0] == 'C' ?
 				static_cast<PriceTicks>(read_u32(message + 32)) : order->price_ticks;
 			const bool printable = message[0] != 'C' || message[31] == 'Y';
+			if (price <= 0 || (message[0] == 'C' && message[31] != 'Y' && message[31] != 'N'))
+			{
+				++stats_.malformed_or_missing_orders;
+				return;
+			}
 			const Match match{price, quantity, order_id, order->side, printable};
 			const auto first = matches_.insert(match_id, match);
+			if (first == FixedHashInsertResult::Full || first == FixedHashInsertResult::InvalidKey)
+			{
+				count_insert_failure(first);
+				return;
+			}
 			if (!printable)
 				++stats_.non_printable_suppressed;
 			else if (first == FixedHashInsertResult::Inserted)
@@ -220,6 +259,8 @@ namespace qtrader::itch50
 				++stats_.duplicate_matches_suppressed;
 			else
 				count_insert_failure(first);
+			emit_book(message, UftBookAction::Execution, order_id, 0, match_id,
+				price, quantity, order->side, printable, engine);
 			order->remaining -= quantity;
 			if (order->remaining == 0)
 				orders_.erase(order_id);
@@ -238,6 +279,8 @@ namespace qtrader::itch50
 			}
 			emit_transaction(message, source_sequence_, UftTransactionType::Cancel,
 				order->side, order->price_ticks, quantity, order_id, engine);
+			emit_book(message, UftBookAction::Reduce, order_id, 0, 0,
+				order->price_ticks, quantity, order->side, false, engine);
 			order->remaining -= quantity;
 			if (order->remaining == 0)
 				orders_.erase(order_id);
@@ -257,6 +300,8 @@ namespace qtrader::itch50
 			emit_transaction(message, source_sequence_, UftTransactionType::Cancel,
 				snapshot.side, snapshot.price_ticks, snapshot.remaining, order_id,
 				engine);
+			emit_book(message, UftBookAction::Delete, order_id, 0, 0,
+				snapshot.price_ticks, snapshot.remaining, snapshot.side, false, engine);
 			orders_.erase(order_id);
 		}
 
@@ -288,6 +333,8 @@ namespace qtrader::itch50
 				old_order.side, old_order.price_ticks, old_order.remaining, old_id,
 				engine);
 			emit_order(message, new_id, replacement, engine);
+			emit_book(message, UftBookAction::Replace, old_id, new_id, 0,
+				replacement.price_ticks, quantity, replacement.side, false, engine);
 		}
 
 		template<typename Engine>
@@ -297,7 +344,15 @@ namespace qtrader::itch50
 			const Match match{static_cast<PriceTicks>(read_u32(message + 32)),
 				read_u32(message + 20), read_u64(message + 11),
 				side_of(message[19]), true};
+			if (match.quantity == 0 || match.price_ticks <= 0 || match.side == UftSide::Unknown)
+			{
+				++stats_.malformed_or_missing_orders;
+				return;
+			}
 			const auto first = matches_.insert(match_id, match);
+			if (first == FixedHashInsertResult::Inserted)
+				emit_book(message, UftBookAction::Trade, match.order_id, 0, match_id,
+					match.price_ticks, match.quantity, match.side, true, engine);
 			if (first == FixedHashInsertResult::Inserted)
 				emit_transaction(message, match_id, UftTransactionType::Trade,
 					match.side, match.price_ticks, match.quantity, match.order_id, engine);
@@ -313,7 +368,15 @@ namespace qtrader::itch50
 			const auto match_id = read_u64(message + 31);
 			const Match match{static_cast<PriceTicks>(read_u32(message + 27)),
 				read_u64(message + 11), 0, UftSide::Unknown, true};
+			if (match.quantity == 0 || match.price_ticks <= 0)
+			{
+				++stats_.malformed_or_missing_orders;
+				return;
+			}
 			const auto first = matches_.insert(match_id, match);
+			if (first == FixedHashInsertResult::Inserted)
+				emit_book(message, UftBookAction::Trade, match.order_id, 0, match_id,
+					match.price_ticks, match.quantity, match.side, true, engine);
 			if (first == FixedHashInsertResult::Inserted)
 				emit_transaction(message, match_id, UftTransactionType::Trade,
 					match.side, match.price_ticks, match.quantity, match.order_id, engine);
@@ -334,6 +397,8 @@ namespace qtrader::itch50
 				return;
 			}
 			const auto match = *found;
+			emit_book(message, UftBookAction::TradeBust, match.order_id, 0, match_id,
+				match.price_ticks, match.quantity, match.side, match.emitted, engine);
 			if (match.emitted)
 				emit_transaction(message, match_id, UftTransactionType::TradeBust,
 					match.side, match.price_ticks, match.quantity, match.order_id,
